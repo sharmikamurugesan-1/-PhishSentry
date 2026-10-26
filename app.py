@@ -1,96 +1,173 @@
 
 import os
+import logging
 import joblib
-from flask import Flask, request, jsonify
-from sklearn.pipeline import Pipeline
 
-app = Flask(__name__)
+from flask import Flask, request, jsonify, render_template
+from werkzeug.exceptions import BadRequest
 
-# Load model files relative to this Python file
+# --------------------------------------------------
+# Flask application configuration
+# --------------------------------------------------
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def load_model(filename):
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates")
+)
+
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB request limit
+
+logging.basicConfig(level=logging.INFO)
+app.logger.setLevel(logging.INFO)
+
+
+# --------------------------------------------------
+# Load existing trained ML artifacts
+# --------------------------------------------------
+
+def load_artifact(filename):
     path = os.path.join(BASE_DIR, filename)
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Model file not found: {path}")
+
+    if not os.path.isfile(path):
+        raise FileNotFoundError(
+            f"Required model file not found: {path}"
+        )
+
+    app.logger.info("Loading artifact: %s", filename)
     return joblib.load(path)
 
-vectorizer = load_model("tfidf_vectorizer.joblib")
-lr_model = load_model("logistic_regression_model.joblib")
-svm_model = load_model("linear_svm_model.joblib")
 
+vectorizer = load_artifact("tfidf_vectorizer.joblib")
+lr_model = load_artifact("logistic_regression_model.joblib")
+svm_model = load_artifact("linear_svm_model.joblib")
+
+
+# --------------------------------------------------
+# Frontend
+# --------------------------------------------------
 
 @app.route("/", methods=["GET"])
 def home():
+    return render_template("index.html")
+
+
+# --------------------------------------------------
+# Health check
+# --------------------------------------------------
+
+@app.route("/health", methods=["GET"])
+def health():
     return jsonify({
         "status": "running",
-        "message": "Phishing Email Detection API",
-        "endpoint": "/predict"
-    })
+        "service": "PhishSentry",
+        "models_loaded": True,
+        "prediction_endpoint": "/predict"
+    }), 200
 
+
+# --------------------------------------------------
+# Email prediction API
+# --------------------------------------------------
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    data = request.get_json(silent=True)
+    try:
+        data = request.get_json(silent=False)
+    except BadRequest:
+        return jsonify({
+            "error": "Invalid JSON. Send a valid JSON request body."
+        }), 400
 
     if not isinstance(data, dict):
-        return jsonify({"error": "Send a valid JSON object"}), 400
+        return jsonify({
+            "error": "Request body must be a JSON object."
+        }), 400
 
-    emails = data.get("emails", [])
+    emails = data.get("emails")
     model_type = data.get("model", "svm")
 
-    if not isinstance(emails, list) or not emails:
-        return jsonify({"error": "Provide a non-empty list of email texts"}), 400
-
-    if not all(isinstance(email, str) and email.strip() for email in emails):
+    if not isinstance(emails, list) or len(emails) == 0:
         return jsonify({
-            "error": "Every email must be a non-empty string"
+            "error": "Provide a non-empty list of email texts."
+        }), 400
+
+    if len(emails) > 100:
+        return jsonify({
+            "error": "Maximum 100 emails per request."
+        }), 400
+
+    if not all(
+        isinstance(email, str) and email.strip()
+        for email in emails
+    ):
+        return jsonify({
+            "error": "Every email must be a non-empty string."
+        }), 400
+
+    if sum(len(email) for email in emails) > 500_000:
+        return jsonify({
+            "error": "Combined email text exceeds the allowed limit."
         }), 400
 
     if model_type not in ("lr", "svm"):
         return jsonify({
-            "error": "Invalid model. Choose 'lr' or 'svm'"
+            "error": "Invalid model. Choose 'lr' or 'svm'."
         }), 400
 
     try:
-        # Transform email texts using the trained TF-IDF vectorizer
+        # Convert email text into the trained TF-IDF feature space
         features = vectorizer.transform(emails)
 
+        # Select the requested trained model
         model = lr_model if model_type == "lr" else svm_model
+
         predictions = model.predict(features)
 
-        # Generate scores consistently for the selected model
+        # Probabilities and SVM decision scores are different.
         if hasattr(model, "predict_proba"):
             scores = model.predict_proba(features)[:, 1]
             score_type = "probability"
+
         elif hasattr(model, "decision_function"):
             scores = model.decision_function(features)
             score_type = "decision_score"
+
         else:
             scores = [None] * len(predictions)
             score_type = "unavailable"
 
         results = []
 
-        for idx, (email, pred, score) in enumerate(
+        for idx, (email, prediction, score) in enumerate(
             zip(emails, predictions, scores)
         ):
-            prediction = int(pred)
+            prediction = int(prediction)
 
             results.append({
                 "email_index": idx,
                 "text_preview": email[:100],
                 "prediction": prediction,
-                "label_name": "Phishing" if prediction == 1 else "Safe",
+                "label_name": (
+                    "Phishing" if prediction == 1 else "Safe"
+                ),
                 "confidence_score": (
                     float(score) if score is not None else None
                 ),
                 "score_type": score_type
             })
 
+        app.logger.info(
+            "Prediction completed: model=%s, emails=%d",
+            model_type,
+            len(results)
+        )
+
         return jsonify({
             "model_used": (
-                "Logistic Regression" if model_type == "lr"
+                "Logistic Regression"
+                if model_type == "lr"
                 else "Linear SVM"
             ),
             "total_emails": len(results),
@@ -98,11 +175,49 @@ def predict():
         }), 200
 
     except Exception:
-        app.logger.exception("Email prediction failed")
+        app.logger.exception("Prediction failed")
+
         return jsonify({
-            "error": "Prediction failed. Check the model files and server logs."
+            "error": (
+                "Prediction failed. Check server logs "
+                "for model or vectorizer compatibility issues."
+            )
         }), 500
 
 
+# --------------------------------------------------
+# Error handlers
+# --------------------------------------------------
+
+@app.errorhandler(413)
+def request_too_large(error):
+    return jsonify({
+        "error": "Request too large. Maximum request size is 1 MB."
+    }), 413
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+        "error": "Endpoint not found."
+    }), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({
+        "error": "Internal server error."
+    }), 500
+
+
+# --------------------------------------------------
+# Local development entry point
+# Render uses: gunicorn app:app
+# --------------------------------------------------
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=False
+    )
