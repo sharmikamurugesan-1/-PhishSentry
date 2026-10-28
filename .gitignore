@@ -2,9 +2,8 @@
 .venv/
 env/
 venv/
-backend/.venv/
+backend/
 __pycache__/
-backend/__pycache__/
 *.py[cod]
 *$py.class
 *.joblib.bak
@@ -39,8 +38,12 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Local build / test artifacts
+# Local temporary generation files
 test_print.html
 test_output.pdf
 report_document.html
+full_showcase_report.html
 generate_report_pdf.py
+PhishShift_All_Screenshots_Album.pdf
+PhishShift_Internship_Project_Report.pdf
+PhishShift_Visual_Interface_Guide.pdf

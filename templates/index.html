@@ -1,170 +1,21 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PhishSentry | Email Security</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0b1020;
-      color: #f1f5f9;
-      min-height: 100vh;
-    }
-    header {
-      padding: 24px 8%;
-      border-bottom: 1px solid #263149;
-      font-size: 24px;
-      font-weight: bold;
-      color: #67e8f9;
-    }
-    main { max-width: 850px; margin: 55px auto; padding: 20px; }
-    .card {
-      background: #151d30;
-      border: 1px solid #293750;
-      border-radius: 18px;
-      padding: 28px;
-    }
-    h1 { margin-top: 0; font-size: 32px; }
-    p { color: #a9b8ce; line-height: 1.6; }
-    label { display: block; margin: 20px 0 10px; }
-    textarea, select {
-      width: 100%;
-      padding: 14px;
-      background: #0b1020;
-      color: white;
-      border: 1px solid #394963;
-      border-radius: 10px;
-      font-size: 15px;
-    }
-    textarea { min-height: 180px; resize: vertical; }
-    button {
-      margin-top: 20px;
-      padding: 14px 22px;
-      background: #06b6d4;
-      color: #06121b;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:disabled { opacity: .6; cursor: wait; }
-    #result {
-      display: none;
-      margin-top: 24px;
-      padding: 20px;
-      border-radius: 12px;
-      background: #0b1020;
-      overflow-wrap: anywhere;
-    }
-    .phishing { border: 1px solid #fb7185; }
-    .safe { border: 1px solid #34d399; }
-    .error { color: #fda4af; }
-    footer { text-align: center; color: #8291a8; padding: 25px; }
-  </style>
-</head>
-<body>
-  <header>PhishSentry</header>
-
-  <main>
-    <div class="card">
-      <h1>Email Threat Scanner</h1>
-      <p>Analyze suspicious email text using your trained machine learning models.</p>
-
-      <form id="scanForm">
-        <label for="email">Email content</label>
-        <textarea id="email" required
-          placeholder="Paste the email text you want to analyze..."></textarea>
-
-        <label for="model">Select ML model</label>
-        <select id="model">
-          <option value="svm">Linear SVM</option>
-          <option value="lr">Logistic Regression</option>
-        </select>
-
-        <button id="scanButton" type="submit">Analyze Email</button>
-      </form>
-
-      <section id="result" aria-live="polite"></section>
-    </div>
-  </main>
-
-  <footer>PhishSentry · Machine Learning Email Security</footer>
-
-  <script>
-    const form = document.getElementById("scanForm");
-    const button = document.getElementById("scanButton");
-    const result = document.getElementById("result");
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-
-      const email = document.getElementById("email").value.trim();
-      const model = document.getElementById("model").value;
-
-      if (!email) return;
-
-      button.disabled = true;
-      button.textContent = "Analyzing...";
-      result.style.display = "block";
-      result.className = "";
-      result.textContent = "Analyzing email with the selected model...";
-
-      try {
-        const response = await fetch("/predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            emails: [email],
-            model: model
-          })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Prediction failed");
-        }
-
-        const item = data.results && data.results[0];
-        if (!item) throw new Error("No prediction result returned.");
-
-        result.className =
-          item.prediction === 1 ? "phishing" : "safe";
-
-        const heading = document.createElement("h2");
-        heading.textContent = item.label_name === "Phishing"
-          ? "⚠ Phishing Detected"
-          : "✓ Classified as Safe";
-
-        const modelInfo = document.createElement("p");
-        modelInfo.textContent = "Model: " + data.model_used;
-
-        const scoreInfo = document.createElement("p");
-        scoreInfo.textContent =
-          item.score_type === "probability"
-            ? "Positive-class probability: " +
-              (Number(item.confidence_score) * 100).toFixed(2) + "%"
-            : item.score_type === "decision_score"
-              ? "SVM decision score: " +
-                Number(item.confidence_score).toFixed(4) +
-                " (not a probability)"
-              : "Score unavailable";
-
-        result.replaceChildren(heading, modelInfo, scoreInfo);
-
-      } catch (error) {
-        result.className = "error";
-        result.textContent = "Error: " + error.message;
-      } finally {
-        button.disabled = false;
-        button.textContent = "Analyze Email";
-      }
-    });
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#A6522E" />
+    <meta name="description" content="Check if a message is a scam and know what to do next. Simple, friendly, and private." />
+    <title>PhishShift | Check if a message is a scam</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-BgU4rsAi.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-dZ-kksuG.css">
+  </head>
+  <body class="min-h-screen">
+    <div id="root"></div>
+  </body>
 </html>

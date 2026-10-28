@@ -1,9 +1,8 @@
-
 import os
 import logging
 import joblib
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.exceptions import BadRequest
 
 # --------------------------------------------------
@@ -11,10 +10,13 @@ from werkzeug.exceptions import BadRequest
 # --------------------------------------------------
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 app = Flask(
     __name__,
-    template_folder=os.path.join(BASE_DIR, "templates")
+    static_folder=STATIC_DIR,
+    template_folder=TEMPLATES_DIR
 )
 
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB request limit
@@ -45,33 +47,6 @@ svm_model = load_artifact("linear_svm_model.joblib")
 
 
 # --------------------------------------------------
-# Frontend
-# --------------------------------------------------
-
-@app.route("/", methods=["GET"])
-def home():
-    return render_template("index.html")
-
-
-# --------------------------------------------------
-# Health check
-# --------------------------------------------------
-
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({
-        "status": "running",
-        "service": "PhishSentry",
-        "models_loaded": True,
-        "prediction_endpoint": "/predict"
-    }), 200
-
-
-# --------------------------------------------------
-# Email prediction API
-# --------------------------------------------------
-
-# --------------------------------------------------
 # CORS Handling
 # --------------------------------------------------
 
@@ -81,6 +56,53 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     return response
+
+
+# --------------------------------------------------
+# Frontend & Static Routing (SPA Support)
+# --------------------------------------------------
+
+@app.route("/", methods=["GET"])
+def home():
+    return render_template("index.html")
+
+
+@app.route("/assets/<path:filename>")
+def serve_assets(filename):
+    return send_from_directory(os.path.join(STATIC_DIR, "assets"), filename)
+
+
+@app.route("/check", methods=["GET"])
+@app.route("/result", methods=["GET"])
+@app.route("/help", methods=["GET"])
+@app.route("/privacy", methods=["GET"])
+@app.route("/email-protection", methods=["GET"])
+def spa_routes():
+    return render_template("index.html")
+
+
+@app.route("/<filename>", methods=["GET"])
+def serve_root_file(filename):
+    file_path = os.path.join(STATIC_DIR, filename)
+    if os.path.isfile(file_path):
+        return send_from_directory(STATIC_DIR, filename)
+    # If not a static file, route to SPA index.html
+    return render_template("index.html")
+
+
+# --------------------------------------------------
+# Health check
+# --------------------------------------------------
+
+@app.route("/health", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "running",
+        "service": "PhishShift",
+        "models_loaded": True,
+        "prediction_endpoint": "/predict"
+    }), 200
 
 
 # --------------------------------------------------
