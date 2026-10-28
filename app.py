@@ -72,6 +72,11 @@ def serve_assets(filename):
     return send_from_directory(os.path.join(STATIC_DIR, "assets"), filename)
 
 
+@app.route("/models/<path:filename>")
+def serve_models(filename):
+    return send_from_directory(os.path.join(STATIC_DIR, "models"), filename)
+
+
 @app.route("/check", methods=["GET"])
 @app.route("/result", methods=["GET"])
 @app.route("/help", methods=["GET"])
