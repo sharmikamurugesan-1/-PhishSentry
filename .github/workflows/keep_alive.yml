@@ -1,0 +1,18 @@
+name: Keep Render Instance Awake
+
+on:
+  schedule:
+    # Runs every 10 minutes to prevent Render free tier instance from sleeping
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    name: Ping Render Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Warmup Ping
+        run: |
+          echo "Pinging https://phishsentry.onrender.com/health..."
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\nTIME_TOTAL:%{time_total}s" https://phishsentry.onrender.com/health)
+          echo "$RESPONSE"
