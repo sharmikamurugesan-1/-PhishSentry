@@ -2,13 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Shield, Sparkles, Move3d, RotateCcw } from 'lucide-react';
 
 export default function HeroSecurity3D() {
   const containerRef = useRef(null);
   const [loading, setLoading] = useState(true);
-  const [interactiveMode, setInteractiveMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('auto'); // 'auto' | 'interactive'
   const isInteractingRef = useRef(false);
 
   useEffect(() => {
@@ -42,7 +39,7 @@ export default function HeroSecurity3D() {
 
     container.appendChild(renderer.domElement);
 
-    // 2. Controls
+    // 2. Controls - enabled smoothly without UI buttons
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
@@ -50,9 +47,18 @@ export default function HeroSecurity3D() {
     controls.enablePan = false;
     controls.maxPolarAngle = Math.PI / 2 + 0.25;
     controls.minPolarAngle = Math.PI / 2 - 0.45;
-    controls.maxAzimuthAngle = Math.PI / 4;
-    controls.minAzimuthAngle = -Math.PI / 4;
-    controls.enabled = false;
+    controls.maxAzimuthAngle = Math.PI / 3;
+    controls.minAzimuthAngle = -Math.PI / 3;
+    controls.enabled = true;
+
+    controls.addEventListener('start', () => {
+      isInteractingRef.current = true;
+    });
+    controls.addEventListener('end', () => {
+      setTimeout(() => {
+        isInteractingRef.current = false;
+      }, 1500);
+    });
 
     // 3. Lighting System (Matching reference artwork)
     // Warm Key Light (Top-Right Golden Sun)
@@ -278,9 +284,6 @@ export default function HeroSecurity3D() {
 
     window.addEventListener('resize', handleResize);
 
-    // Save controls ref for toggling interactive mode
-    controlsRef.current = controls;
-
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', onScroll);
@@ -293,99 +296,49 @@ export default function HeroSecurity3D() {
     };
   }, []);
 
-  const controlsRef = useRef(null);
-
-  const toggleInteractive = (mode) => {
-    setActiveTab(mode);
-    const isInteractive = mode === 'interactive';
-    setInteractiveMode(isInteractive);
-    isInteractingRef.current = isInteractive;
-    if (controlsRef.current) {
-      controlsRef.current.enabled = isInteractive;
-      if (!isInteractive) {
-        controlsRef.current.reset();
-      }
-    }
-  };
-
   return (
     <div className="w-full relative flex flex-col items-center justify-center">
-      {/* 3D Canvas Viewport */}
+      {/* 3D Canvas Viewport - seamlessly merged into background */}
       <div 
         ref={containerRef}
-        className="relative w-full aspect-[16/10] sm:aspect-[16/9] flex items-center justify-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl transition-all"
-        style={{ cursor: interactiveMode ? 'grab' : 'default' }}
+        className="relative w-full aspect-[16/10] sm:aspect-[16/9] flex items-center justify-center overflow-hidden select-none cursor-grab active:cursor-grabbing"
       >
         {/* Loading Spinner */}
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-bg)]/80 backdrop-blur-sm z-20">
             <div className="w-8 h-8 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin mb-3" />
             <span className="text-[13px] text-[var(--color-text-muted)] font-medium">
-              Initializing 3D Shield Environment...
+              Loading 3D Shield...
             </span>
           </div>
         )}
 
-        {/* 3D Overlay Badge */}
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--color-bg)]/80 backdrop-blur-md border border-[var(--color-border)] text-[11px] font-semibold tracking-wider text-[var(--color-accent)] uppercase">
-          <Sparkles size={12} className="text-[var(--color-accent)]" />
-          <span>Real-time 3D PBR</span>
-        </div>
-
-        {/* Interactive Mode Toggle in Top Right */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 p-0.5 rounded-lg bg-[var(--color-bg)]/80 backdrop-blur-md border border-[var(--color-border)]">
-          <button
-            type="button"
-            onClick={() => toggleInteractive('auto')}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
-              activeTab === 'auto'
-                ? 'bg-[var(--color-accent)] text-[#1B130E] font-semibold'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-            }`}
-          >
-            <span>Cinematic</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleInteractive('interactive')}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
-              activeTab === 'interactive'
-                ? 'bg-[var(--color-accent)] text-[#1B130E] font-semibold'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-            }`}
-            title="Click and drag to rotate the 3D model"
-          >
-            <Move3d size={11} />
-            <span>Orbit 3D</span>
-          </button>
-        </div>
-
-        {/* Subtle Radial Ambient Fade to blend canvas edges */}
+        {/* Soft edge dissolves seamlessly into background */}
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(circle at center, transparent 40%, rgba(27, 19, 14, 0.45) 95%)'
+            background: 'radial-gradient(circle at center, transparent 35%, var(--color-bg) 92%)'
           }}
         />
-
-        {/* Drag Hint when in interactive mode */}
-        {interactiveMode && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-[var(--color-bg)]/90 backdrop-blur-md border border-[var(--color-border)] text-[11px] text-[var(--color-text-muted)] pointer-events-none animate-pulse flex items-center gap-1.5">
-            <Move3d size={12} className="text-[var(--color-accent)]" />
-            <span>Click & Drag to explore in 3D</span>
-          </div>
-        )}
+        {/* Left edge blend towards text */}
+        <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[var(--color-bg)] via-[var(--color-bg)]/80 to-transparent pointer-events-none" />
+        {/* Right edge blend */}
+        <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-[var(--color-bg)] via-[var(--color-bg)]/70 to-transparent pointer-events-none" />
+        {/* Top edge blend */}
+        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[var(--color-bg)] via-[var(--color-bg)]/80 to-transparent pointer-events-none" />
+        {/* Bottom edge blend */}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)]/90 to-transparent pointer-events-none" />
       </div>
 
-      {/* Status Bar */}
-      <div className="w-full pt-3 flex items-center justify-between text-[13px] text-[var(--color-text-muted)] font-normal px-2">
+      {/* Seamless Status Line with exact simple-English phrases (sentence-case sans) */}
+      <div className="w-full pt-2 flex items-center justify-between text-[13px] sm:text-[14px] text-[var(--color-text-muted)] font-normal select-none px-2">
         <span className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
-          <span>Real-time Shader Lighting</span>
+          <span>Links are never opened</span>
         </span>
         <span className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span>Interactive 60 FPS Engine</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-text-muted)]" />
+          <span>Nothing is saved</span>
         </span>
       </div>
     </div>
