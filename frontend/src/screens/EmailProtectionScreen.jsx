@@ -329,7 +329,7 @@ export default function EmailProtectionScreen() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-accent)' }}>
               <ShieldCheck size={14} />
-              <span>Automatic Email Protection</span>
+              <span>Email Protection & Inbox Scanner</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight font-serif" style={{ color: 'var(--color-text)' }}>
               Email Protection
@@ -446,6 +446,14 @@ export default function EmailProtectionScreen() {
                       ? "Running in pre-configured Demo Mode so you can test live scanning, sender rules, and review actions immediately."
                       : "Connected to your real email provider via official OAuth 2.0 token."}
                   </p>
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <span className="text-[11px] px-2 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-bg)]">
+                      Scanning: Manual (Click 'Scan Inbox')
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 rounded border border-neutral-700 text-neutral-400 bg-[var(--color-bg)]" title="Continuous background checking is not enabled. Protection runs when you click Scan Inbox.">
+                      Continuous background checks: Not configured
+                    </span>
+                  </div>
                 </div>
 
                 {/* Scan Inbox and Reset Actions */}
@@ -1299,16 +1307,25 @@ export default function EmailProtectionScreen() {
                     </p>
                   </div>
                   <div>
-                    <span className="text-[var(--color-text-muted)]">Authorized scope:</span>
+                    <span className="text-[var(--color-text-muted)]">Authorized redirect URI:</span>
+                    <p className="font-mono text-[var(--color-text)]">
+                      {window.location.origin}/email-protection
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[var(--color-text-muted)]">Authorized read-only scope:</span>
                     <p className="text-emerald-400 font-mono">
                       {oauthModalProvider === 'google' ? 'https://www.googleapis.com/auth/gmail.readonly' : 'Mail.Read'}
                     </p>
                   </div>
                 </div>
 
-                <p className="text-xs">
-                  While awaiting OAuth credentials, all four email protection features are fully functional right now via <strong>Demo Simulation Mode</strong>.
-                </p>
+                <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text-muted)] space-y-1">
+                  <span className="font-semibold text-[var(--color-text)] block">Demo Simulation vs. Live Actions:</span>
+                  <p>
+                    Without these credentials, PhishShift runs in <strong>Demo Simulation Mode</strong>. In Demo Mode, releasing or blocking an email operates locally on your demo session data and will not modify external mailboxes.
+                  </p>
+                </div>
               </div>
 
               <div className="pt-2">

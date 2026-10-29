@@ -4,7 +4,7 @@ import re
 import json
 from datetime import datetime
 
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phishshift.db")
+DB_FILE = os.environ.get("DB_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "phishshift.db")
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 DOMAIN_REGEX = re.compile(r"^@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
