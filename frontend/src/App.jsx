@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 import HomeScreen from './screens/HomeScreen';
 import CheckScreen from './screens/CheckScreen';
@@ -8,11 +8,20 @@ import HelpScreen from './screens/HelpScreen';
 import PrivacyScreen from './screens/PrivacyScreen';
 import EmailProtectionScreen from './screens/EmailProtectionScreen';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   const [activeCheck, setActiveCheck] = useState(null);
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route element={<AppLayout />}>
           <Route 

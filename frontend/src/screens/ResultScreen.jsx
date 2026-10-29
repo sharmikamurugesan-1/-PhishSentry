@@ -84,7 +84,7 @@ Why: ${currentResult.reason}
 What to do:
 ${(currentResult.todo || []).map((t) => `• ${t}`).join('\n')}
 Safe Link Inspection: Processed strictly as text, zero external calls.
-Checked securely at https://phishshift.org`;
+Checked securely at https://phishsentry.onrender.com`;
 
       await navigator.clipboard.writeText(summaryText);
       setCopied(true);
@@ -97,7 +97,7 @@ Checked securely at https://phishshift.org`;
   const totalWarnings = (currentResult.noticed?.length || 0) + (currentResult.links?.length || 0);
 
   return (
-    <div className="section-spacious min-h-[calc(100vh-120px)] bg-[var(--color-bg)] text-left">
+    <div className="py-8 sm:py-12 min-h-screen bg-[var(--color-bg)] text-left overflow-y-visible">
       <div className="content-container max-w-4xl space-y-8">
         
         {/* Step Indicator Header */}
@@ -129,7 +129,7 @@ Checked securely at https://phishshift.org`;
             </div>
 
             <span className="hidden sm:inline-block text-[13px] px-2.5 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-surface)]">
-              {severityLevel} risk
+              {severityLevel === 'critical' ? 'High Risk' : severityLevel === 'high' ? 'High Risk' : severityLevel === 'medium' ? 'Caution Needed' : 'Low Risk'}
             </span>
           </div>
 
@@ -207,8 +207,8 @@ Checked securely at https://phishshift.org`;
                 </h3>
                 <p className="text-[13px] text-[var(--color-text-muted)]">
                   {totalWarnings > 0 
-                    ? `${totalWarnings} warning signal${totalWarnings === 1 ? '' : 's'} identified across 6 advanced interactive tools`
-                    : "Inspect message details and verification checks"}
+                    ? `${totalWarnings} warning sign${totalWarnings === 1 ? '' : 's'} identified across 6 visual tools`
+                    : "Inspect message details across 6 visual tools"}
                 </p>
               </div>
             </div>
@@ -246,16 +246,18 @@ Checked securely at https://phishshift.org`;
                 {showTechnicalDetails && (
                   <div className="mt-2 p-3.5 card-flat text-[13px] text-[var(--color-text-muted)] space-y-1.5">
                     <div className="flex justify-between">
-                      <span>Evaluator method:</span>
-                      <span className="text-[var(--color-text)]">{currentResult.model_type || 'Statistical classifier'}</span>
+                      <span>Check method:</span>
+                      <span className="text-[var(--color-text)]">Pattern comparison</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Calculated score:</span>
-                      <span className="text-[var(--color-accent)]">{currentResult.model_score ?? 'N/A'}</span>
+                      <span>How sure the check is:</span>
+                      <span className="text-[var(--color-accent)]">
+                        {currentResult.model_score !== undefined ? `${Math.round(currentResult.model_score * 100)}%` : 'Not available'}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span>External link opening:</span>
-                      <span className="text-emerald-400">Disabled (links never opened)</span>
+                      <span>External links:</span>
+                      <span className="text-emerald-400">Never opened or visited</span>
                     </div>
                   </div>
                 )}

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Flame, 
-  GitFork, 
+  Highlighter, 
+  Activity, 
   BarChart3, 
+  Sliders, 
+  GitFork, 
+  Clock, 
   AlertTriangle, 
   Globe, 
   ShieldAlert, 
@@ -13,15 +16,7 @@ import {
   Info, 
   FileText, 
   Lock, 
-  Layers, 
-  ArrowRight,
-  Activity,
-  Sliders,
-  Clock,
-  CheckCircle2,
-  Cpu,
-  Search,
-  ExternalLink
+  CheckCircle2
 } from 'lucide-react';
 import { COPY } from '../copy';
 
@@ -29,23 +24,23 @@ export default function EvidenceExplorer({
   verdict = 'not_sure',
   severityLevel = 'medium',
   modelScore = 0.5,
-  modelType = 'Logistic Regression',
+  modelType = 'Pattern comparison',
   noticed = [],
   links = [],
   todo = [],
   originalText = ''
 }) {
-  // 6 Advanced Visualizations:
-  // 1. heatmap -> Suspicious Message Heatmap
-  // 2. risk_heatmap -> Interactive Risk Heatmap (Threat Matrix Intensity Heatmap)
-  // 3. categories -> Phishing Risk Bar Chart
-  // 4. breakdown -> Risk Breakdown Chart
-  // 5. threat_map -> Interactive Threat Map
+  // 6 Advanced Graph-Based Visualizations:
+  // 1. highlight -> Message Highlight
+  // 2. risk_heatmap -> Risk Heatmap
+  // 3. bar_graph -> Risk Bar Graph
+  // 4. breakdown -> Risk Breakdown
+  // 5. threat_map -> Threat Connection Map
   // 6. timeline -> Evidence Timeline
-  const [activeTab, setActiveTab] = useState('heatmap');
+  const [activeTab, setActiveTab] = useState('highlight');
   const [showHighlightedView, setShowHighlightedView] = useState(true);
 
-  // Filter detected warning signs into meaningful categories
+  // Group detected warning signs into simple categories
   const urgencyWords = noticed.filter((n) => 
     /urgent|immediately|blocked|suspended|disconnected|immediate|rush|act now|hurry|freeze|24 hours|expire|warning/i.test(n.text)
   );
@@ -76,110 +71,109 @@ export default function EvidenceExplorer({
     }
   }, [noticed, links, originalText]);
 
-  // 1. Phishing Risk Bar Chart Categories
-  const categories = [
+  // 1. Tool 3: Risk Bar Graph Categories
+  const barGraphCategories = [
     {
       id: 'urgency',
-      title: 'Urgency & pressure tactics',
+      title: 'Pressure & rush words',
       items: urgencyWords,
       count: urgencyWords.length,
-      severity: urgencyWords.length > 0 ? (verdict === 'likely_scam' ? 'High' : 'Moderate') : 'None detected',
+      severity: urgencyWords.length > 0 ? (verdict === 'likely_scam' ? 'High Risk' : 'Caution') : 'None found',
       barColor: urgencyWords.length > 0 ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-surface-hover)]',
       barWidth: urgencyWords.length > 0 ? (urgencyWords.length > 1 ? '85%' : '55%') : '6%',
-      summary: 'Time pressure designed to rush you into hasty choices.'
+      summary: 'Words that rush you to act before you have time to think.'
     },
     {
       id: 'links',
-      title: 'Deceptive web links',
+      title: 'Suspicious web links',
       items: links,
       count: links.length,
-      severity: links.length > 0 ? (links.some(l => l.looks_like) ? 'Critical' : 'Moderate') : 'None detected',
+      severity: links.length > 0 ? (links.some(l => l.looks_like) ? 'High Risk' : 'Caution') : 'None found',
       barColor: links.length > 0 ? 'bg-red-500' : 'bg-[var(--color-surface-hover)]',
       barWidth: links.length > 0 ? (links.some(l => l.looks_like) ? '95%' : '60%') : '6%',
-      summary: 'Links that imitate trusted services or hide their real destination.'
+      summary: 'Web addresses that hide their true destination or imitate real services.'
     },
     {
       id: 'credentials',
-      title: 'Demands for private details',
+      title: 'Password or personal details request',
       items: credentialWords,
       count: credentialWords.length,
-      severity: credentialWords.length > 0 ? 'High' : 'None detected',
+      severity: credentialWords.length > 0 ? 'High Risk' : 'None found',
       barColor: credentialWords.length > 0 ? 'bg-amber-500' : 'bg-[var(--color-surface-hover)]',
       barWidth: credentialWords.length > 0 ? '75%' : '6%',
-      summary: 'Requests for passwords, OTPs, or government numbers.'
+      summary: 'Requests asking for your passwords, OTP codes, bank account, or identity cards.'
     },
     {
-      id: 'statistical',
-      title: 'Similarity to known scam patterns',
+      id: 'patterns',
+      title: 'Similarity to known scams',
       items: otherWords,
       count: modelScore ? 1 : 0,
-      severity: modelScore >= 0.75 ? 'Critical' : modelScore >= 0.40 ? 'Moderate' : 'Low',
+      severity: modelScore >= 0.75 ? 'High Risk' : modelScore >= 0.40 ? 'Caution' : 'Low Risk',
       barColor: modelScore >= 0.75 ? 'bg-red-400' : modelScore >= 0.40 ? 'bg-amber-400' : 'bg-emerald-500',
       barWidth: `${Math.max(10, Math.min(100, Math.round(modelScore * 100)))}%`,
-      summary: `Found ${(modelScore * 100).toFixed(1)}% match to common scam phrasing.`
+      summary: `${Math.round(modelScore * 100)}% match against thousands of known scam templates.`
     }
   ];
 
-  // 2. Multi-Vector Risk Matrix Heatmap
-  const riskHeatmapVectors = [
+  // 2. Tool 2: Risk Heatmap (Key Danger Areas)
+  const heatmapAreas = [
     {
-      id: 'coercion',
-      name: 'Linguistic Coercion & Panic',
-      sub: 'Deadlines, manufactured urgency, account freezes',
+      id: 'pressure',
+      name: 'Pressure Words',
+      sub: 'Deadlines, threats of account lockout, or urgent warnings',
       level: urgencyWords.length >= 2 ? 4 : urgencyWords.length === 1 ? 3 : (verdict === 'likely_scam' ? 2 : 1),
-      levelLabel: urgencyWords.length >= 2 ? 'Severe' : urgencyWords.length === 1 ? 'Elevated' : (verdict === 'likely_scam' ? 'Guarded' : 'Safe'),
+      levelLabel: urgencyWords.length >= 2 ? 'High Risk' : urgencyWords.length === 1 ? 'Elevated' : (verdict === 'likely_scam' ? 'Caution' : 'Low Risk'),
       activeColor: urgencyWords.length >= 2 ? 'bg-red-500' : urgencyWords.length === 1 ? 'bg-[var(--color-accent)]' : 'bg-emerald-500',
       evidenceCount: urgencyWords.length,
       evidenceSummary: urgencyWords.length > 0 
-        ? `${urgencyWords.length} urgency term${urgencyWords.length > 1 ? 's' : ''} detected: ${urgencyWords.map(w => `"${w.text}"`).join(', ')}`
-        : 'No high-pressure ultimatum words found in message.'
+        ? `${urgencyWords.length} pressure word${urgencyWords.length > 1 ? 's' : ''} found: ${urgencyWords.map(w => `"${w.text}"`).join(', ')}`
+        : 'No urgent pressure words or deadline threats found.'
     },
     {
-      id: 'links_auth',
-      name: 'Link & Domain Authenticity',
-      sub: 'Impersonation, unverified domains, deceptive URLs',
+      id: 'links',
+      name: 'Web Links & Addresses',
+      sub: 'Imposter website links or unverified addresses',
       level: links.some(l => l.looks_like) ? 4 : links.length > 0 ? 3 : 1,
-      levelLabel: links.some(l => l.looks_like) ? 'Severe' : links.length > 0 ? 'Elevated' : 'Safe',
+      levelLabel: links.some(l => l.looks_like) ? 'High Risk' : links.length > 0 ? 'Elevated' : 'Low Risk',
       activeColor: links.some(l => l.looks_like) ? 'bg-red-500' : links.length > 0 ? 'bg-amber-500' : 'bg-emerald-500',
       evidenceCount: links.length,
       evidenceSummary: links.length > 0 
-        ? `${links.length} web link${links.length > 1 ? 's' : ''} extracted: ${links.map(l => l.shown).join(', ')}`
-        : 'Zero external URLs or unverified domains present.'
+        ? `${links.length} web link${links.length > 1 ? 's' : ''} found: ${links.map(l => l.shown).join(', ')}`
+        : 'No web addresses or external links were found.'
     },
     {
-      id: 'solicitation',
-      name: 'Sensitive Data Solicitation',
-      sub: 'Demands for OTPs, KYC, passwords, PAN/Aadhaar',
+      id: 'details',
+      name: 'Password or Personal Details Request',
+      sub: 'Asking for OTPs, PINs, passwords, or government ID cards',
       level: credentialWords.length >= 2 ? 4 : credentialWords.length === 1 ? 3 : 1,
-      levelLabel: credentialWords.length >= 2 ? 'Severe' : credentialWords.length === 1 ? 'Elevated' : 'Safe',
+      levelLabel: credentialWords.length >= 2 ? 'High Risk' : credentialWords.length === 1 ? 'Elevated' : 'Low Risk',
       activeColor: credentialWords.length >= 2 ? 'bg-red-500' : credentialWords.length === 1 ? 'bg-amber-500' : 'bg-emerald-500',
       evidenceCount: credentialWords.length,
       evidenceSummary: credentialWords.length > 0
-        ? `${credentialWords.length} sensitive data trigger${credentialWords.length > 1 ? 's' : ''}: ${credentialWords.map(w => `"${w.text}"`).join(', ')}`
-        : 'No credential demands or verification traps identified.'
+        ? `${credentialWords.length} sensitive detail request${credentialWords.length > 1 ? 's' : ''}: ${credentialWords.map(w => `"${w.text}"`).join(', ')}`
+        : 'No requests for passwords or personal details found.'
     },
     {
-      id: 'statistical_ml',
-      name: 'Statistical Model Confidence',
-      sub: `Trained ${modelType} n-gram classifier`,
+      id: 'confidence',
+      name: 'How Sure the Result Is',
+      sub: 'Pattern match against verified scam communications',
       level: modelScore >= 0.85 ? 4 : modelScore >= 0.60 ? 3 : modelScore >= 0.35 ? 2 : 1,
-      levelLabel: modelScore >= 0.85 ? 'Severe' : modelScore >= 0.60 ? 'Elevated' : modelScore >= 0.35 ? 'Guarded' : 'Safe',
+      levelLabel: modelScore >= 0.85 ? 'High Risk' : modelScore >= 0.60 ? 'Elevated' : modelScore >= 0.35 ? 'Caution' : 'Low Risk',
       activeColor: modelScore >= 0.85 ? 'bg-red-500' : modelScore >= 0.60 ? 'bg-amber-500' : modelScore >= 0.35 ? 'bg-amber-600' : 'bg-emerald-500',
       evidenceCount: 1,
-      evidenceSummary: `Calculated probability: ${(modelScore * 100).toFixed(1)}% correspondence with trained threat corpora.`
+      evidenceSummary: `The wording has a ${Math.round(modelScore * 100)}% match with patterns common in scam messages.`
     }
   ];
 
-  // 3. Proportional Risk Breakdown
+  // 3. Tool 4: Risk Breakdown (Proportional Share)
   const computeRiskBreakdown = () => {
     if (verdict === 'no_signs' && links.length === 0 && noticed.length === 0) {
       return [
-        { id: 'benign', name: 'Legitimate Contextual Patterns', percent: 92, count: originalText.length, color: 'bg-emerald-500', note: 'Phrasing matches verified benign communications.' },
-        { id: 'residual', name: 'Baseline Baseline Uncertainty', percent: 8, count: 0, color: 'bg-[var(--color-surface-hover)]', note: 'Standard precautionary margin.' }
+        { id: 'benign', name: 'Normal Communication', percent: 100, count: originalText.length, color: 'bg-emerald-500', note: 'Wording matches typical, legitimate messages with no danger signs.' }
       ];
     }
 
-    // Weight allocations derived from real findings
+    // Proportional calculation based on actual findings
     const mlWeight = Math.round(modelScore * 40);
     const linkWeight = links.length > 0 ? (links.some(l => l.looks_like) ? 35 : 25) : 5;
     const urgencyWeight = urgencyWords.length > 0 ? Math.min(25, urgencyWords.length * 12) : 5;
@@ -192,186 +186,184 @@ export default function EvidenceExplorer({
     const normCred = 100 - (normML + normLink + normUrgency);
 
     return [
-      { id: 'ml_factor', name: 'Statistical Model Confidence', percent: normML, count: 1, color: 'bg-red-500', note: `Model evaluated ${(modelScore * 100).toFixed(1)}% threat likelihood.` },
-      { id: 'link_factor', name: 'Deceptive Link Risk', percent: normLink, count: links.length, color: 'bg-amber-500', note: `${links.length} web address${links.length === 1 ? '' : 'es'} verified strictly in memory.` },
-      { id: 'urgency_factor', name: 'Linguistic Pressure Traps', percent: normUrgency, count: urgencyWords.length, color: 'bg-[var(--color-accent)]', note: `${urgencyWords.length} manufactured panic keyword${urgencyWords.length === 1 ? '' : 's'}.` },
-      { id: 'cred_factor', name: 'Credential Solicitation', percent: normCred, count: credentialWords.length, color: 'bg-orange-500', note: `${credentialWords.length} direct data extraction request${credentialWords.length === 1 ? '' : 's'}.` }
+      { id: 'ml_factor', name: 'Scam Pattern Match', percent: normML, count: 1, color: 'bg-red-500', note: `${Math.round(modelScore * 100)}% match with known scam messages.` },
+      { id: 'link_factor', name: 'Suspicious Links', percent: normLink, count: links.length, color: 'bg-amber-500', note: `${links.length} web address${links.length === 1 ? '' : 'es'} found in message.` },
+      { id: 'urgency_factor', name: 'Pressure Words', percent: normUrgency, count: urgencyWords.length, color: 'bg-[var(--color-accent)]', note: `${urgencyWords.length} rush or panic word${urgencyWords.length === 1 ? '' : 's'}.` },
+      { id: 'cred_factor', name: 'Password or ID Requests', percent: normCred, count: credentialWords.length, color: 'bg-orange-500', note: `${credentialWords.length} request${credentialWords.length === 1 ? '' : 's'} for personal or bank details.` }
     ];
   };
 
-  const riskBreakdownFactors = computeRiskBreakdown();
+  const breakdownFactors = computeRiskBreakdown();
 
-  // 4. Sequential Evidence Timeline Milestones
+  // 4. Tool 6: Evidence Timeline Milestones (NO fake milliseconds)
   const timelineMilestones = [
     {
       step: 1,
-      title: 'Message Ingestion & Isolation',
-      timeOffset: '0.0 ms',
-      status: 'Clean & Isolated',
+      title: 'Message Received Privately',
+      status: 'Private',
+      statusColor: 'text-emerald-400',
       icon: Lock,
-      metric: `${originalText.length} characters parsed`,
-      desc: 'Message text placed into temporary RAM buffer. Network transmission and DNS lookups strictly disabled.',
-      itemData: { type: 'timeline', title: 'Message Ingestion & Isolation', detail: `Received ${originalText.length} characters in memory. Zero external server calls or disk writes performed.` }
+      metric: originalText ? `${originalText.length} characters` : 'Not available',
+      desc: 'Checked temporarily in computer memory. Nothing is ever saved to a database or tracked.',
+      itemData: { type: 'timeline', title: 'Message Received Privately', detail: `Examined ${originalText ? originalText.length : 0} characters in temporary memory with zero permanent storage.` }
     },
     {
       step: 2,
-      title: 'Structural Link & Domain Parsing',
-      timeOffset: '+12.4 ms',
-      status: links.length > 0 ? (links.some(l => l.looks_like) ? 'Imposter Link Detected' : 'External Link Identified') : 'No URLs Present',
+      title: 'Web Links Checked',
+      status: links.length > 0 ? (links.some(l => l.looks_like) ? 'Fake Brand Link' : 'External Link') : 'No Links Found',
+      statusColor: links.some(l => l.looks_like) ? 'text-red-400' : links.length > 0 ? 'text-amber-400' : 'text-emerald-400',
       icon: Globe,
-      metric: `${links.length} URL${links.length === 1 ? '' : 's'} extracted`,
-      desc: links.length > 0 ? `Parsed ${links.length} link token(s) against verified brand pattern registries.` : 'No hyperlinks or web addresses were discovered in message.',
-      itemData: { type: 'timeline', title: 'Structural Link & Domain Parsing', detail: links.length > 0 ? links.map(l => l.shown + (l.looks_like ? ` (Impersonating ${l.looks_like})` : '')).join(', ') : 'Zero web links found.' }
+      metric: `${links.length} web link${links.length === 1 ? '' : 's'}`,
+      desc: links.length > 0 ? `Found ${links.length} web address(es). Links were checked safely as plain text and never opened.` : 'No website addresses were discovered in this message.',
+      itemData: { type: 'timeline', title: 'Web Links Checked', detail: links.length > 0 ? links.map(l => l.shown + (l.looks_like ? ` (Impersonating ${l.looks_like})` : '')).join(', ') : 'Zero web links found.' }
     },
     {
       step: 3,
-      title: 'Behavioral Heuristic Scan',
-      timeOffset: '+25.8 ms',
-      status: noticed.length > 0 ? `${noticed.length} Alert Patterns Flagged` : 'Clean Behavior',
-      icon: Search,
-      metric: `${urgencyWords.length} urgency, ${credentialWords.length} credential`,
-      desc: `Extracted syntactical coercion markers, artificial deadlines, and data extraction requests.`,
-      itemData: { type: 'timeline', title: 'Behavioral Heuristic Scan', detail: noticed.length > 0 ? noticed.map(n => `"${n.text}": ${n.why}`).join(' | ') : 'No urgency or credential traps discovered.' }
+      title: 'Warning Words Checked',
+      status: noticed.length > 0 ? `${noticed.length} Flagged` : 'Clean Words',
+      statusColor: noticed.length > 0 ? 'text-amber-400' : 'text-emerald-400',
+      icon: Eye,
+      metric: `${noticed.length} detected word${noticed.length === 1 ? '' : 's'}`,
+      desc: noticed.length > 0 ? `Flagged ${urgencyWords.length} pressure word(s) and ${credentialWords.length} request(s) for personal details.` : 'No pushy deadlines, threats, or password traps were discovered.',
+      itemData: { type: 'timeline', title: 'Warning Words Checked', detail: noticed.length > 0 ? noticed.map(n => `"${n.text}": ${n.why}`).join(' | ') : 'No urgency or credential traps discovered.' }
     },
     {
       step: 4,
-      title: 'Statistical ML Inference',
-      timeOffset: '+39.2 ms',
-      status: `${(modelScore * 100).toFixed(1)}% Match`,
-      icon: Cpu,
-      metric: `${modelType} Engine`,
-      desc: `Vectorized token n-grams evaluated against trained weights of known legitimate and phishing corpora.`,
-      itemData: { type: 'timeline', title: 'Statistical ML Inference', detail: `Trained ${modelType} computed calibrated probability score of ${(modelScore * 100).toFixed(2)}%.` }
+      title: 'Scam Pattern Check',
+      status: modelScore >= 0.60 ? 'Scam Patterns Found' : modelScore >= 0.35 ? 'Ambiguous' : 'Looks Normal',
+      statusColor: modelScore >= 0.60 ? 'text-red-400' : modelScore >= 0.35 ? 'text-amber-400' : 'text-emerald-400',
+      icon: BarChart3,
+      metric: typeof modelScore === 'number' ? `${Math.round(modelScore * 100)}% match` : 'Not available',
+      desc: `Compared the phrasing against thousands of verified legitimate and scam messages.`,
+      itemData: { type: 'timeline', title: 'Scam Pattern Check', detail: `The wording shows a ${Math.round(modelScore * 100)}% pattern match with typical scam templates.` }
     },
     {
       step: 5,
-      title: 'Verdict & Playbook Generation',
-      timeOffset: '+51.0 ms',
-      status: verdict === 'likely_scam' ? 'Threat Confirmed' : verdict === 'not_sure' ? 'Caution Recommended' : 'Verified Safe',
+      title: 'Final Safety Advice',
+      status: verdict === 'likely_scam' ? 'Action Needed' : verdict === 'not_sure' ? 'Be Careful' : 'Safe to Read',
+      statusColor: verdict === 'likely_scam' ? 'text-red-400' : verdict === 'not_sure' ? 'text-amber-400' : 'text-emerald-400',
       icon: ShieldCheck,
-      metric: `${todo.length} Defensive Actions`,
-      desc: `Synthesized structural indicators and statistical score into final verdict and immediate protective steps.`,
-      itemData: { type: 'timeline', title: 'Verdict & Playbook Generation', detail: `Assigned severity level "${severityLevel}". Generated ${todo.length} tailored protective actions.` }
+      metric: `${todo.length} safe step${todo.length === 1 ? '' : 's'}`,
+      desc: `Created clear, step-by-step guidance so you know exactly what to do next.`,
+      itemData: { type: 'timeline', title: 'Final Safety Advice', detail: `Assigned a risk level of "${severityLevel === 'critical' ? 'High Risk' : severityLevel === 'high' ? 'High Risk' : severityLevel === 'medium' ? 'Caution Needed' : 'Low Risk'}". Recommended ${todo.length} immediate safety action(s).` }
     }
   ];
 
   const toolDescriptions = {
-    heatmap: "Review the message with suspicious phrases highlighted. Click any highlight to inspect it.",
-    risk_heatmap: "Interactive multi-dimensional risk matrix mapping threat vectors and evaluated severity.",
-    categories: "Review how each warning category contributed to the overall risk assessment.",
-    breakdown: "Proportional risk breakdown showing exact weighted contribution to the final verdict.",
-    threat_map: "Explore how the message, detected warning signs, and safe steps connect.",
-    timeline: "Step-by-step chronological audit trail from in-memory parsing to verdict generation."
+    highlight: "Read your message with suspicious words and links highlighted. Click any highlight to see why.",
+    risk_heatmap: "Overview of key danger areas, from low risk to high risk.",
+    bar_graph: "Main warning signs shown as simple horizontal bars.",
+    breakdown: "How different warning signs contribute to this result.",
+    threat_map: "See how the message, detected warning signs, and advice connect.",
+    timeline: "Step-by-step review of how your message was examined."
   };
 
   const hasAnyEvidence = noticed.length > 0 || links.length > 0;
 
   return (
-    <div className="w-full card-flat overflow-hidden space-y-0">
+    <div className="w-full card-flat space-y-0 text-left">
       
-      {/* 1. Explorer Navigation Bar */}
-      <div className="p-4 sm:p-5 bg-[var(--color-surface)] border-b border-[var(--color-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      {/* 1. Navigation Header & Responsive Tabs */}
+      <div className="p-4 sm:p-5 bg-[var(--color-surface)] border-b border-[var(--color-border)] space-y-3">
         <div className="space-y-0.5">
           <span className="text-[13px] text-[var(--color-text-muted)] flex items-center gap-1.5 font-normal">
-            <Layers size={13} className="text-[var(--color-accent)]" />
-            <span>Interactive Evidence Explorer</span>
+            <Shield size={14} className="text-[var(--color-accent)]" />
+            <span>Evidence Explorer · 6 Visual Tools</span>
           </span>
-          <p className="text-[13px] text-[var(--color-text-muted)]">
+          <p className="text-[14px] text-[var(--color-text)] font-medium">
             {toolDescriptions[activeTab]}
           </p>
         </div>
 
-        {/* 6 Tool Mode Tabs */}
-        <div className="w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] text-[12px] sm:text-[13px] whitespace-nowrap">
-            {/* 1. Message Heatmap */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('heatmap')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'heatmap'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              <Flame size={13} />
-              <span>1. Message Heatmap</span>
-            </button>
+        {/* Responsive 6-Tool Navigation Grid (2 cols mobile, 3 cols tablet, 6 cols desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-1.5 rounded-xl bg-[var(--color-bg)] border border-[var(--color-border)]">
+          {/* Tool 1: Message Highlight */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('highlight')}
+            className={`px-3 py-2.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
+              activeTab === 'highlight'
+                ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-sm'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <Highlighter size={14} className="shrink-0" />
+            <span className="truncate">1. Message Highlight</span>
+          </button>
 
-            {/* 2. Risk Matrix Heatmap */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('risk_heatmap')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'risk_heatmap'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              <Activity size={13} />
-              <span>2. Risk Heatmap</span>
-            </button>
+          {/* Tool 2: Risk Heatmap */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('risk_heatmap')}
+            className={`px-3 py-2.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
+              activeTab === 'risk_heatmap'
+                ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-sm'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <Activity size={14} className="shrink-0" />
+            <span className="truncate">2. Risk Heatmap</span>
+          </button>
 
-            {/* 3. Risk Bar Chart */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('categories')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'categories'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              <BarChart3 size={13} />
-              <span>3. Risk Bar Chart</span>
-            </button>
+          {/* Tool 3: Risk Bar Graph */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('bar_graph')}
+            className={`px-3 py-2.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
+              activeTab === 'bar_graph'
+                ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-sm'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <BarChart3 size={14} className="shrink-0" />
+            <span className="truncate">3. Risk Bar Graph</span>
+          </button>
 
-            {/* 4. Risk Breakdown */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('breakdown')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'breakdown'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              <Sliders size={13} />
-              <span>4. Risk Breakdown</span>
-            </button>
+          {/* Tool 4: Risk Breakdown */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('breakdown')}
+            className={`px-3 py-2.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
+              activeTab === 'breakdown'
+                ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-sm'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <Sliders size={14} className="shrink-0" />
+            <span className="truncate">4. Risk Breakdown</span>
+          </button>
 
-            {/* 5. Threat Map */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('threat_map')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'threat_map'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              <GitFork size={13} />
-              <span>5. Threat Map</span>
-            </button>
+          {/* Tool 5: Threat Connection Map */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('threat_map')}
+            className={`px-3 py-2.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
+              activeTab === 'threat_map'
+                ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-sm'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <GitFork size={14} className="shrink-0" />
+            <span className="truncate">5. Threat Map</span>
+          </button>
 
-            {/* 6. Evidence Timeline */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('timeline')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'timeline'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              <Clock size={13} />
-              <span>6. Evidence Timeline</span>
-            </button>
-          </div>
+          {/* Tool 6: Evidence Timeline */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('timeline')}
+            className={`px-3 py-2.5 rounded-lg text-xs sm:text-[13px] font-medium transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
+              activeTab === 'timeline'
+                ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-sm'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <Clock size={14} className="shrink-0" />
+            <span className="truncate">6. Timeline</span>
+          </button>
         </div>
       </div>
 
-      {/* 2. Interactive Work Area (7 cols tool, 5 cols detail panel) */}
+      {/* 2. Interactive Work Area (7 cols active graph, 5 cols detail panel) */}
       <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start bg-[var(--color-bg)]">
         
         {/* LEFT COLUMN: ACTIVE TOOL (lg:col-span-7) */}
@@ -380,25 +372,25 @@ export default function EvidenceExplorer({
           <div className="flex items-center justify-between text-[13px] text-[var(--color-text-muted)] pb-1 border-b border-[var(--color-border)]">
             <span className="flex items-center gap-1.5">
               <Info size={13} className="text-[var(--color-accent)]" />
-              <span>Select any element below to reveal evidence</span>
+              <span>Click any element below to see why it matters</span>
             </span>
-            <span className="text-xs">Direct model output</span>
+            <span className="text-xs">Based on actual check</span>
           </div>
 
-          {/* TOOL 1: MESSAGE HEATMAP */}
-          {activeTab === 'heatmap' && (
+          {/* TOOL 1: MESSAGE HIGHLIGHT */}
+          {activeTab === 'highlight' && (
             <div className="space-y-3.5">
               {/* Legend & View Switcher */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[13px]">
                 <div className="flex flex-wrap items-center gap-3 text-[var(--color-text-muted)]">
-                  <span className="text-[var(--color-text)] font-medium">Highlight Key:</span>
+                  <span className="text-[var(--color-text)] font-medium">Color Key:</span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded bg-[var(--color-accent)]" />
                     <span>Pressure words</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded bg-amber-500" />
-                    <span>Credential asks</span>
+                    <span>Personal detail asks</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded bg-red-500" />
@@ -428,16 +420,16 @@ export default function EvidenceExplorer({
                         : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
                     }`}
                   >
-                    Original text
+                    Plain text
                   </button>
                 </div>
               </div>
 
-              {/* Message Heatmap Display Area */}
+              {/* Message Display Area */}
               <div className="p-5 card-flat text-[15px] leading-relaxed text-[var(--color-text)] whitespace-pre-wrap break-words min-h-[160px]">
                 {(() => {
                   if (!originalText) {
-                    return <span className="text-[var(--color-text-muted)]">No message text was submitted for this check.</span>;
+                    return <span className="text-[var(--color-text-muted)]">No message text was provided for this check.</span>;
                   }
 
                   if (!showHighlightedView || (!noticed.length && !links.length)) {
@@ -446,8 +438,8 @@ export default function EvidenceExplorer({
                         <p>{originalText}</p>
                         {!hasAnyEvidence && (
                           <div className="pt-2 text-xs text-emerald-400 flex items-center gap-1.5 border-t border-[var(--color-border)]">
-                            <ShieldCheck size={14} />
-                            <span>No suspicious words or deceptive web links were detected in this message.</span>
+                            <ShieldCheck size={15} />
+                            <span>No suspicious words, pushy deadlines, or deceptive links were found in this message.</span>
                           </div>
                         )}
                       </div>
@@ -509,30 +501,30 @@ export default function EvidenceExplorer({
               </div>
 
               <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)] px-1">
-                <span>Click any highlighted phrase above to view its risk explanation</span>
-                <span>{hasAnyEvidence ? `${noticed.length + links.length} trigger phrase${noticed.length + links.length === 1 ? '' : 's'}` : 'Clear text'}</span>
+                <span>Click any highlighted word above to view why it was flagged</span>
+                <span>{hasAnyEvidence ? `${noticed.length + links.length} warning sign${noticed.length + links.length === 1 ? '' : 's'} identified` : 'Clear text'}</span>
               </div>
             </div>
           )}
 
-          {/* TOOL 2: INTERACTIVE RISK HEATMAP (THREAT MATRIX INTENSITY) */}
+          {/* TOOL 2: RISK HEATMAP */}
           {activeTab === 'risk_heatmap' && (
             <div className="space-y-4">
               <div className="p-4 sm:p-5 card-flat space-y-4">
                 <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)] pb-2 border-b border-[var(--color-border)]">
-                  <span className="font-medium text-[var(--color-text)]">Multi-Vector Threat Intensity Matrix</span>
-                  <span>4 Threat Vectors Evaluated</span>
+                  <span className="font-medium text-[var(--color-text)]">Danger Area Levels</span>
+                  <span>Low Risk → High Risk</span>
                 </div>
 
                 <div className="space-y-3">
-                  {riskHeatmapVectors.map((vec) => {
-                    const isSelected = activeItem?.type === 'vector' && activeItem?.data?.id === vec.id;
+                  {heatmapAreas.map((area) => {
+                    const isSelected = activeItem?.type === 'area' && activeItem?.data?.id === area.id;
 
                     return (
                       <button
-                        key={vec.id}
+                        key={area.id}
                         type="button"
-                        onClick={() => setActiveItem({ type: 'vector', data: vec })}
+                        onClick={() => setActiveItem({ type: 'area', data: area })}
                         className={`w-full p-4 rounded-xl border text-left transition-all cursor-pointer space-y-3 ${
                           isSelected
                             ? 'border-[var(--color-accent)] bg-[var(--color-surface-hover)]'
@@ -542,28 +534,28 @@ export default function EvidenceExplorer({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[14px]">
                           <div>
                             <span className="font-semibold text-[var(--color-text)] block">
-                              {vec.name}
+                              {area.name}
                             </span>
                             <span className="text-[12px] text-[var(--color-text-muted)]">
-                              {vec.sub}
+                              {area.sub}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 self-start sm:self-auto pt-1 sm:pt-0">
-                            <span className={`text-[11px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
-                              vec.level === 4 ? 'bg-red-950/80 text-red-300 border border-red-800' :
-                              vec.level === 3 ? 'bg-amber-950/80 text-amber-300 border border-amber-800' :
-                              vec.level === 2 ? 'bg-amber-950/40 text-amber-200 border border-amber-900' :
+                            <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded font-sans uppercase tracking-wider ${
+                              area.level === 4 ? 'bg-red-950/80 text-red-300 border border-red-800' :
+                              area.level === 3 ? 'bg-amber-950/80 text-amber-300 border border-amber-800' :
+                              area.level === 2 ? 'bg-amber-950/40 text-amber-200 border border-amber-900' :
                               'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
                             }`}>
-                              {vec.levelLabel}
+                              {area.levelLabel}
                             </span>
                           </div>
                         </div>
 
-                        {/* Discrete 4-Cell Heatmap Intensity Bar */}
+                        {/* 4-Block Visual Heatmap Intensity Scale */}
                         <div className="grid grid-cols-4 gap-1.5 pt-1">
                           {[1, 2, 3, 4].map((stepIdx) => {
-                            const isFilled = stepIdx <= vec.level;
+                            const isFilled = stepIdx <= area.level;
                             return (
                               <div
                                 key={stepIdx}
@@ -580,7 +572,7 @@ export default function EvidenceExplorer({
                         </div>
 
                         <div className="flex items-center justify-between text-[12px] text-[var(--color-text-muted)] pt-0.5">
-                          <span>Intensity: Level {vec.level} of 4</span>
+                          <span>Risk: {area.levelLabel}</span>
                           <span className="text-[var(--color-accent)] font-medium">Click to inspect</span>
                         </div>
                       </button>
@@ -591,10 +583,10 @@ export default function EvidenceExplorer({
             </div>
           )}
 
-          {/* TOOL 3: PHISHING RISK BAR CHART */}
-          {activeTab === 'categories' && (
+          {/* TOOL 3: RISK BAR GRAPH */}
+          {activeTab === 'bar_graph' && (
             <div className="space-y-3">
-              {categories.map((cat) => {
+              {barGraphCategories.map((cat) => {
                 const isSelected = activeItem?.type === 'category' && activeItem?.data?.id === cat.id;
 
                 return (
@@ -617,7 +609,7 @@ export default function EvidenceExplorer({
                       </span>
                     </div>
 
-                    <div className="w-full h-2 rounded-full bg-[var(--color-surface-hover)] overflow-hidden">
+                    <div className="w-full h-2.5 rounded-full bg-[var(--color-surface-hover)] overflow-hidden">
                       <div 
                         className={`h-full rounded-full transition-all duration-300 ${cat.barColor}`}
                         style={{ width: cat.barWidth }}
@@ -627,7 +619,7 @@ export default function EvidenceExplorer({
                     <div className="flex items-center justify-between text-[13px] text-[var(--color-text-muted)]">
                       <span className="truncate pr-2">{cat.summary}</span>
                       <span className="shrink-0 text-[var(--color-accent)] font-medium">
-                        {cat.count} signal{cat.count === 1 ? '' : 's'}
+                        {cat.count > 0 ? `${cat.count} found` : 'None found'}
                       </span>
                     </div>
                   </button>
@@ -636,22 +628,22 @@ export default function EvidenceExplorer({
             </div>
           )}
 
-          {/* TOOL 4: RISK BREAKDOWN CHART */}
+          {/* TOOL 4: RISK BREAKDOWN */}
           {activeTab === 'breakdown' && (
             <div className="space-y-4">
               <div className="p-5 card-flat space-y-5">
                 <div className="space-y-1">
                   <h4 className="text-[15px] font-semibold text-[var(--color-text)] font-serif">
-                    Proportional Factor Contribution
+                    What Contributed to This Result
                   </h4>
                   <p className="text-[13px] text-[var(--color-text-muted)]">
-                    Exact weight distribution of verified signals contributing to the final evaluation score.
+                    Shows which warning signs had the biggest impact on this check.
                   </p>
                 </div>
 
-                {/* Segmented Risk Stacked Bar */}
+                {/* Stacked Proportional Bar Graph */}
                 <div className="w-full h-3 rounded-full overflow-hidden flex bg-[var(--color-surface-hover)]">
-                  {riskBreakdownFactors.map((factor, idx) => (
+                  {breakdownFactors.map((factor, idx) => (
                     <div
                       key={idx}
                       className={`${factor.color} h-full transition-all duration-500`}
@@ -661,9 +653,9 @@ export default function EvidenceExplorer({
                   ))}
                 </div>
 
-                {/* Interactive Factor Grid */}
+                {/* Individual Factor Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {riskBreakdownFactors.map((factor) => {
+                  {breakdownFactors.map((factor) => {
                     const isSelected = activeItem?.type === 'factor' && activeItem?.data?.id === factor.id;
 
                     return (
@@ -680,10 +672,10 @@ export default function EvidenceExplorer({
                         <div className="flex items-center justify-between">
                           <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] font-medium">
                             <span className={`w-2.5 h-2.5 rounded-full ${factor.color}`} />
-                            <span>{factor.percent}% Weight</span>
+                            <span>{factor.percent}% Share</span>
                           </span>
-                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-accent)]">
-                            {factor.count} signal{factor.count === 1 ? '' : 's'}
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-accent)]">
+                            {factor.count} item{factor.count === 1 ? '' : 's'}
                           </span>
                         </div>
                         <h5 className="font-semibold text-[13px] text-[var(--color-text)] leading-snug">
@@ -700,7 +692,7 @@ export default function EvidenceExplorer({
             </div>
           )}
 
-          {/* TOOL 5: THREAT MAP (RELATIONSHIP GRAPH) */}
+          {/* TOOL 5: THREAT CONNECTION MAP */}
           {activeTab === 'threat_map' && (
             <div className="space-y-4">
               {!hasAnyEvidence ? (
@@ -736,7 +728,7 @@ export default function EvidenceExplorer({
                   {/* Branch Nodes: Warning Signs & Suspicious Links */}
                   <div className="space-y-2 text-center">
                     <span className="text-xs text-[var(--color-text-muted)] block">
-                      Detected warning signs & links
+                      Warning signs & web links found
                     </span>
 
                     <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -811,8 +803,8 @@ export default function EvidenceExplorer({
             <div className="space-y-4">
               <div className="p-5 card-flat space-y-4">
                 <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)] pb-2 border-b border-[var(--color-border)]">
-                  <span className="font-medium text-[var(--color-text)]">Chronological Execution Pipeline</span>
-                  <span>Total Latency: ~51ms</span>
+                  <span className="font-medium text-[var(--color-text)]">Step-by-Step Safety Review</span>
+                  <span>5 Steps Completed</span>
                 </div>
 
                 <div className="relative pl-6 space-y-5 border-l-2 border-[var(--color-border)] ml-3">
@@ -845,8 +837,8 @@ export default function EvidenceExplorer({
                             <Icon size={14} className="text-[var(--color-accent)]" />
                             <span>{ms.title}</span>
                           </span>
-                          <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
-                            {ms.timeOffset}
+                          <span className={`text-[12px] font-medium ${ms.statusColor}`}>
+                            {ms.status}
                           </span>
                         </div>
 
@@ -855,10 +847,10 @@ export default function EvidenceExplorer({
                         </p>
 
                         <div className="flex items-center justify-between text-[12px] pt-1 border-t border-[var(--color-border)]">
-                          <span className="text-emerald-400 font-medium">
-                            {ms.status}
+                          <span className="text-[var(--color-text-muted)]">
+                            Actual check:
                           </span>
-                          <span className="font-mono text-[var(--color-text-muted)]">
+                          <span className="font-medium text-[var(--color-text)]">
                             {ms.metric}
                           </span>
                         </div>
@@ -880,16 +872,16 @@ export default function EvidenceExplorer({
               <div className="flex items-center gap-2">
                 <Lightbulb size={16} className="text-[var(--color-accent)]" />
                 <h4 className="font-semibold text-[15px] text-[var(--color-text)] font-serif">
-                  Evidence details
+                  Evidence Details
                 </h4>
               </div>
-              <span className="text-[12px] text-[var(--color-text-muted)] px-2 py-0.5 rounded bg-[var(--color-surface-hover)] capitalize">
-                {activeItem?.type === 'finding' ? 'Phrase finding' : 
-                 activeItem?.type === 'link' ? 'Web link' : 
-                 activeItem?.type === 'category' ? 'Category' : 
-                 activeItem?.type === 'vector' ? 'Risk vector' :
-                 activeItem?.type === 'factor' ? 'Risk factor' :
-                 activeItem?.type === 'timeline' ? 'Audit step' : 'Check summary'}
+              <span className="text-[12px] text-[var(--color-text-muted)] px-2.5 py-0.5 rounded bg-[var(--color-surface-hover)]">
+                {activeItem?.type === 'finding' ? 'Detected Word' : 
+                 activeItem?.type === 'link' ? 'Web Link' : 
+                 activeItem?.type === 'category' ? 'Warning Bar' : 
+                 activeItem?.type === 'area' ? 'Risk Area' :
+                 activeItem?.type === 'factor' ? 'Result Factor' :
+                 activeItem?.type === 'timeline' ? 'Check Step' : 'Summary'}
               </span>
             </div>
 
@@ -899,7 +891,7 @@ export default function EvidenceExplorer({
                 <div className="p-3.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] space-y-1">
                   <span className="text-[12px] text-[var(--color-accent)] font-medium flex items-center gap-1.5">
                     <Eye size={13} />
-                    <span>What was noticed</span>
+                    <span>What was found</span>
                   </span>
                   <p className="text-[14px] font-medium text-[var(--color-text)]">
                     "{activeItem.data.text}"
@@ -919,7 +911,7 @@ export default function EvidenceExplorer({
                 <div className="p-3.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] space-y-1">
                   <span className="text-[12px] text-emerald-400 font-medium flex items-center gap-1.5">
                     <Shield size={13} />
-                    <span>Recommended next step</span>
+                    <span>What you should do next</span>
                   </span>
                   <p className="text-[14px] text-[var(--color-text-muted)] leading-relaxed">
                     Do not rush or reply. Verify directly by contacting the real organization using a phone number you look up yourself.
@@ -960,13 +952,13 @@ export default function EvidenceExplorer({
                     Safe handling
                   </span>
                   <p className="text-[14px] text-[var(--color-text-muted)] leading-relaxed">
-                    This web address was inspected strictly as text. We never open or visit unfamiliar links.
+                    This web address was examined strictly as text. We never open or visit unfamiliar links.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Category Finding Details (Risk Bar Chart) */}
+            {/* Category Finding Details (Risk Bar Graph) */}
             {activeItem?.type === 'category' && (
               <div className="space-y-3">
                 <div className="space-y-1">
@@ -981,7 +973,7 @@ export default function EvidenceExplorer({
                 {activeItem.data.items && activeItem.data.items.length > 0 ? (
                   <div className="space-y-2 pt-1">
                     <span className="text-[12px] text-[var(--color-text-muted)] font-medium">
-                      Signals in this category:
+                      Warning signs found in this category:
                     </span>
                     {activeItem.data.items.map((it, idx) => (
                       <div key={idx} className="p-2.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[13px] space-y-1">
@@ -996,18 +988,23 @@ export default function EvidenceExplorer({
                   </div>
                 ) : (
                   <p className="text-[13px] text-[var(--color-text-muted)] italic p-3 rounded-lg bg-[var(--color-surface)]">
-                    No specific trigger words identified in this category for this message.
+                    No specific trigger words were identified in this category for this message.
                   </p>
                 )}
               </div>
             )}
 
-            {/* Risk Vector Details (Interactive Risk Heatmap) */}
-            {activeItem?.type === 'vector' && (
+            {/* Danger Area Details (Risk Heatmap) */}
+            {activeItem?.type === 'area' && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-accent)] font-semibold uppercase">
-                    Level {activeItem.data.level} of 4: {activeItem.data.levelLabel}
+                  <span className={`text-[11px] font-sans px-2 py-0.5 rounded font-semibold uppercase ${
+                    activeItem.data.level === 4 ? 'bg-red-950/80 text-red-300 border border-red-800' :
+                    activeItem.data.level === 3 ? 'bg-amber-950/80 text-amber-300 border border-amber-800' :
+                    activeItem.data.level === 2 ? 'bg-amber-950/40 text-amber-200 border border-amber-900' :
+                    'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
+                  }`}>
+                    {activeItem.data.levelLabel}
                   </span>
                   <h5 className="font-semibold text-[15px] text-[var(--color-text)] pt-1">
                     {activeItem.data.name}
@@ -1019,7 +1016,7 @@ export default function EvidenceExplorer({
 
                 <div className="p-3.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] space-y-1">
                   <span className="text-[12px] text-[var(--color-text-muted)] font-medium">
-                    Evaluated findings:
+                    What was found:
                   </span>
                   <p className="text-[14px] text-[var(--color-text)]">
                     {activeItem.data.evidenceSummary}
@@ -1028,12 +1025,12 @@ export default function EvidenceExplorer({
 
                 <div className="p-3.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] space-y-1">
                   <span className="text-[12px] text-emerald-400 font-medium">
-                    Defense recommendation:
+                    What you should do next:
                   </span>
                   <p className="text-[14px] text-[var(--color-text-muted)] leading-relaxed">
                     {activeItem.data.level >= 3 
-                      ? 'Exercise elevated vigilance. Treat claims of urgency as suspicious until verified through official channels.'
-                      : 'Standard hygiene applies. Continue verifying sensitive financial requests before sharing data.'}
+                      ? 'Be extremely cautious. Do not click links or provide personal info until you verify with the sender independently.'
+                      : 'Safe hygiene applies. Never send banking passwords or verification codes to anyone.'}
                   </p>
                 </div>
               </div>
@@ -1043,8 +1040,8 @@ export default function EvidenceExplorer({
             {activeItem?.type === 'factor' && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-accent)] font-semibold">
-                    {activeItem.data.percent}% Normalized Weight
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-accent)] font-semibold">
+                    {activeItem.data.percent}% Share of Result
                   </span>
                   <h5 className="font-semibold text-[15px] text-[var(--color-text)] pt-1">
                     {activeItem.data.name}
@@ -1056,10 +1053,10 @@ export default function EvidenceExplorer({
 
                 <div className="p-3.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] space-y-1">
                   <span className="text-[12px] text-[var(--color-text-muted)] font-medium">
-                    Contribution factor:
+                    How it affects your safety:
                   </span>
                   <p className="text-[14px] text-[var(--color-text)]">
-                    Represents {activeItem.data.percent}% of the total risk calculation, supported by {activeItem.data.count} detected signal item(s).
+                    Represents {activeItem.data.percent}% of the total warning score, supported by {activeItem.data.count} detected signal(s).
                   </p>
                 </div>
               </div>
@@ -1069,8 +1066,8 @@ export default function EvidenceExplorer({
             {activeItem?.type === 'timeline' && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-emerald-400 font-semibold">
-                    {activeItem.data.status} • {activeItem.data.timeOffset}
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-emerald-400 font-semibold">
+                    {activeItem.data.status}
                   </span>
                   <h5 className="font-semibold text-[15px] text-[var(--color-text)] pt-1">
                     Step {activeItem.data.step}: {activeItem.data.title}
@@ -1082,7 +1079,7 @@ export default function EvidenceExplorer({
 
                 <div className="p-3.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] space-y-1">
                   <span className="text-[12px] text-[var(--color-accent)] font-medium">
-                    Technical verification audit:
+                    What this step confirmed:
                   </span>
                   <p className="text-[14px] text-[var(--color-text)]">
                     {activeItem.data.detail}
@@ -1096,7 +1093,7 @@ export default function EvidenceExplorer({
               <div className="space-y-3">
                 <div className="space-y-1">
                   <h5 className="font-semibold text-[15px] text-[var(--color-text)]">
-                    Evaluation summary
+                    Check Summary
                   </h5>
                   <p className="text-[14px] text-[var(--color-text-muted)] leading-relaxed">
                     {verdict === 'likely_scam' 
@@ -1109,7 +1106,7 @@ export default function EvidenceExplorer({
 
                 <div className="p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[13px] space-y-1">
                   <span className="text-[var(--color-text-muted)] block">
-                    Result level: <strong className="text-[var(--color-accent)]">{severityLevel}</strong>
+                    Risk level: <strong className="text-[var(--color-accent)]">{severityLevel === 'critical' ? 'High Risk' : severityLevel === 'high' ? 'High Risk' : severityLevel === 'medium' ? 'Caution Needed' : 'Low Risk'}</strong>
                   </span>
                   <span className="text-[var(--color-text-muted)] block">
                     We don't save your messages.
