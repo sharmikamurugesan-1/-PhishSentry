@@ -1,11 +1,13 @@
 import os
 import re
+import secrets
 import logging
 import joblib
 
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect
 from werkzeug.exceptions import BadRequest
 import email_protection_db as db
+import google_mail_service
 
 # --------------------------------------------------
 # Flask application configuration
@@ -22,6 +24,7 @@ app = Flask(
 )
 
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB request limit
+app.secret_key = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "phishshift-secret-key-prod-2026"
 
 logging.basicConfig(level=logging.INFO)
 app.logger.setLevel(logging.INFO)
@@ -380,32 +383,187 @@ def inbox_status():
     }), 200
 
 
-@app.route("/api/inbox/connect", methods=["POST", "OPTIONS"])
-def inbox_connect():
-    """Connects or switches email protection mode (Demo mode vs OAuth provider)."""
+# --------------------------------------------------
+# Real Google OAuth 2.0 & Gmail Integration
+# --------------------------------------------------
+
+@app.route("/api/auth/google/url", methods=["GET"])
+def google_auth_url():
+    """Returns official Google OAuth 2.0 consent URL or clear setup requirements if unconfigured."""
+    redirect_uri = google_mail_service.get_default_redirect_uri(request.host)
+    if not google_mail_service.is_google_oauth_configured():
+        return jsonify({
+            "configured": False,
+            "message": "Google OAuth is not configured yet on the backend.",
+            "setup_guide": {
+                "required_env_vars": [
+                    "GOOGLE_CLIENT_ID (or VITE_GOOGLE_CLIENT_ID)",
+                    "GOOGLE_CLIENT_SECRET"
+                ],
+                "authorized_redirect_uri": redirect_uri,
+                "scope": "https://www.googleapis.com/auth/gmail.readonly"
+            }
+        }), 200
+
+    state = secrets.token_urlsafe(32)
+    session["oauth_state"] = state
+    auth_url = google_mail_service.build_authorization_url(state=state, redirect_uri=redirect_uri)
+    return jsonify({
+        "configured": True,
+        "auth_url": auth_url,
+        "redirect_uri": redirect_uri
+    }), 200
+
+
+@app.route("/api/auth/google/callback", methods=["GET"])
+def google_auth_callback():
+    """Handles official Google OAuth authorization code callback."""
+    error = request.args.get("error")
+    if error:
+        app.logger.warning("Google OAuth error from user consent: %s", error)
+        return redirect(f"/email-protection?auth_error={error}")
+
+    code = request.args.get("code")
+    state = request.args.get("state")
+
+    if not code:
+        return redirect("/email-protection?auth_error=missing_code")
+
+    expected_state = session.get("oauth_state")
+    if expected_state and state and state != expected_state:
+        app.logger.error("OAuth state mismatch: possible CSRF attempt.")
+        return redirect("/email-protection?auth_error=state_mismatch")
+
+    try:
+        redirect_uri = google_mail_service.get_default_redirect_uri(request.host)
+        tokens = google_mail_service.exchange_code_for_tokens(code, redirect_uri=redirect_uri)
+        user_email = google_mail_service.get_user_profile(tokens["access_token"])
+        if not user_email:
+            return redirect("/email-protection?auth_error=could_not_read_profile")
+
+        db.set_real_account_connected(
+            provider="google",
+            email=user_email,
+            access_token=tokens["access_token"],
+            refresh_token=tokens.get("refresh_token"),
+            expires_in=tokens.get("expires_in", 3600)
+        )
+        app.logger.info("Successfully connected real Google account: %s", user_email)
+        return redirect("/email-protection?connected=1")
+
+    except Exception:
+        app.logger.exception("Google OAuth callback exchange failed")
+        return redirect("/email-protection?auth_error=exchange_failed")
+
+
+@app.route("/api/auth/disconnect", methods=["POST", "OPTIONS"])
+def disconnect_account():
+    """Disconnects real account, clears tokens and associated messages."""
     if request.method == "OPTIONS":
         return "", 204
-    data = request.get_json(silent=True) or {}
-    provider = data.get("provider", "demo")
-    email = data.get("email", "")
-    is_demo = bool(data.get("is_demo", True if provider == "demo" else False))
-    status = "connected" if (is_demo or email) else "awaiting_setup"
-
-    updated = db.update_connection_info(
-        provider=provider,
-        status=status,
-        email=email or ("user.protect@phishshift-demo.com" if is_demo else ""),
-        is_demo=is_demo
-    )
+    updated = db.disconnect_inbox()
     return jsonify({"success": True, "connection": updated}), 200
 
 
+@app.route("/api/inbox/demo-mode", methods=["POST", "OPTIONS"])
+def toggle_demo_mode():
+    """Explicitly enables or disables Demo Mode for sandbox testing."""
+    if request.method == "OPTIONS":
+        return "", 204
+    data = request.get_json(silent=True) or {}
+    action = data.get("action", "enable")
+
+    if action == "enable":
+        updated = db.enable_demo_mode()
+    else:
+        updated = db.disconnect_inbox()
+
+    return jsonify({"success": True, "connection": updated}), 200
+
+
+@app.route("/api/inbox/scan-30-days", methods=["POST", "OPTIONS"])
 @app.route("/api/inbox/scan", methods=["POST", "OPTIONS"])
 def inbox_scan():
-    """Scans all inbox messages through the trained ML model and updates threat alerts."""
+    """Scans emails from the last 30 days using real Gmail API or sandbox demo messages."""
     if request.method == "OPTIONS":
         return "", 204
 
+    conn_info = db.get_connection_info()
+    if conn_info.get("status") != "connected":
+        return jsonify({
+            "error": "No email account connected. Please connect your Gmail account first, or enable Sandbox Demo Mode below."
+        }), 400
+
+    # 1. Real Google Gmail account connected
+    if not conn_info.get("is_demo") and conn_info.get("provider") == "google":
+        tokens = db.get_stored_tokens()
+        if not tokens or not tokens.get("access_token"):
+            return jsonify({"error": "Missing access token. Please reconnect your account."}), 401
+
+        access_token = tokens["access_token"]
+        refresh_token = tokens.get("refresh_token")
+
+        try:
+            fetch_res = google_mail_service.fetch_emails_last_30_days(access_token, max_messages=50)
+        except google_mail_service.GmailApiError as err:
+            if "expired" in str(err).lower() and refresh_token:
+                try:
+                    new_tokens = google_mail_service.refresh_access_token(refresh_token)
+                    db.update_access_token(new_tokens["access_token"], new_tokens.get("expires_in", 3600))
+                    fetch_res = google_mail_service.fetch_emails_last_30_days(new_tokens["access_token"], max_messages=50)
+                except Exception as refresh_err:
+                    return jsonify({"error": f"Session expired. Please reconnect your account: {str(refresh_err)}"}), 401
+            else:
+                return jsonify({"error": f"Could not retrieve Gmail messages: {str(err)}"}), 502
+        except Exception as err:
+            return jsonify({"error": f"Gmail request failed: {str(err)}"}), 500
+
+        retrieved_emails = fetch_res.get("emails", [])
+        total_found = fetch_res.get("total_found", len(retrieved_emails))
+        date_range = fetch_res.get("date_range", {})
+
+        # Save to database (deduplicating by provider_message_id)
+        db.save_real_email_batch(retrieved_emails)
+
+        # Evaluate through trained ML models
+        messages = db.get_inbox_messages()
+        scanned = 0
+        safe_count = 0
+        suspicious_count = 0
+        phishing_count = 0
+
+        for msg in messages:
+            analysis = analyze_inbox_email(msg["subject"], msg["body"], msg["sender"])
+            db.save_scan_result(
+                message_id=msg["id"],
+                verdict=analysis["verdict"],
+                severity_level=analysis["severity_level"],
+                model_score=analysis["model_score"],
+                warning_signs=analysis["warning_signs"],
+                new_status=analysis["status"],
+                is_demo=0
+            )
+            scanned += 1
+            if analysis["verdict"] == "no_signs":
+                safe_count += 1
+            elif analysis["verdict"] == "not_sure":
+                suspicious_count += 1
+            else:
+                phishing_count += 1
+
+        return jsonify({
+            "success": True,
+            "mode": "real",
+            "total_found": total_found,
+            "scanned_count": scanned,
+            "safe_count": safe_count,
+            "suspicious_count": suspicious_count,
+            "phishing_count": phishing_count,
+            "date_range": date_range,
+            "messages": db.get_inbox_messages()
+        }), 200
+
+    # 2. Sandbox Demo Mode
     messages = db.get_inbox_messages()
     scanned = 0
     safe_count = 0
@@ -413,7 +571,6 @@ def inbox_scan():
     phishing_count = 0
 
     for msg in messages:
-        # Evaluate message
         analysis = analyze_inbox_email(msg["subject"], msg["body"], msg["sender"])
         db.save_scan_result(
             message_id=msg["id"],
@@ -421,7 +578,8 @@ def inbox_scan():
             severity_level=analysis["severity_level"],
             model_score=analysis["model_score"],
             warning_signs=analysis["warning_signs"],
-            new_status=analysis["status"]
+            new_status=analysis["status"],
+            is_demo=1
         )
         scanned += 1
         if analysis["verdict"] == "no_signs":
@@ -433,10 +591,13 @@ def inbox_scan():
 
     return jsonify({
         "success": True,
+        "mode": "demo",
+        "total_found": len(messages),
         "scanned_count": scanned,
         "safe_count": safe_count,
         "suspicious_count": suspicious_count,
         "phishing_count": phishing_count,
+        "date_range": {"from": "Last 30 Days", "to": "Today"},
         "messages": db.get_inbox_messages()
     }), 200
 

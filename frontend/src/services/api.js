@@ -311,19 +311,35 @@ async function apiRequest(path, options = {}) {
 // Automatic Email Protection API Client Services
 // ----------------------------------------------------
 
+export async function getGoogleAuthUrl() {
+  return await apiRequest('/api/auth/google/url');
+}
+
+export async function disconnectAccount() {
+  return await apiRequest('/api/auth/disconnect', {
+    method: 'POST'
+  });
+}
+
+export async function toggleDemoMode(action = 'enable') {
+  return await apiRequest('/api/inbox/demo-mode', {
+    method: 'POST',
+    body: JSON.stringify({ action })
+  });
+}
+
+export async function scanLast30Days() {
+  return await apiRequest('/api/inbox/scan-30-days', {
+    method: 'POST'
+  });
+}
+
 export async function getInboxStatus() {
   return await apiRequest('/api/inbox/status');
 }
 
-export async function connectInbox(provider = 'demo', email = '', isDemo = true) {
-  return await apiRequest('/api/inbox/connect', {
-    method: 'POST',
-    body: JSON.stringify({ provider, email, is_demo: isDemo })
-  });
-}
-
 export async function scanInbox() {
-  return await apiRequest('/api/inbox/scan', {
+  return await apiRequest('/api/inbox/scan-30-days', {
     method: 'POST'
   });
 }
