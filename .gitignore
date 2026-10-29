@@ -24,6 +24,10 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
+# SQLite database
+*.db
+*.sqlite3
+
 # Logs
 *.log
 npm-debug.log*

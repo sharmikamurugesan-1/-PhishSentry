@@ -14,6 +14,7 @@ export default function Header() {
   const navLinks = [
     { to: '/', label: COPY.navigation.home },
     { to: '/check', label: COPY.navigation.check },
+    { to: '/email-protection', label: 'Email Protection' },
     { to: '/help', label: COPY.navigation.scamHelp },
   ];
 

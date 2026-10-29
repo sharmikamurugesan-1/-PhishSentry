@@ -264,3 +264,123 @@ export async function analyzeMessage(text) {
     todo
   };
 }
+
+/**
+ * Robust fetch helper that checks both relative and deployed base URLs
+ */
+async function apiRequest(path, options = {}) {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const urls = [
+    cleanPath,
+    `${API_BASE_URL}${cleanPath}`
+  ];
+  const uniqueUrls = Array.from(new Set(urls));
+
+  let lastError = null;
+  for (const url of uniqueUrls) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        },
+        ...options
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      // If server returned structured JSON error
+      try {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Request failed (${res.status})`);
+      } catch (parseErr) {
+        throw new Error(parseErr.message || `Request failed with status ${res.status}`);
+      }
+    } catch (err) {
+      lastError = err;
+      // If it was a 4xx validation error thrown above, don't retry with next URL
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
+    }
+  }
+  throw lastError || new Error("Could not reach backend server.");
+}
+
+// ----------------------------------------------------
+// Automatic Email Protection API Client Services
+// ----------------------------------------------------
+
+export async function getInboxStatus() {
+  return await apiRequest('/api/inbox/status');
+}
+
+export async function connectInbox(provider = 'demo', email = '', isDemo = true) {
+  return await apiRequest('/api/inbox/connect', {
+    method: 'POST',
+    body: JSON.stringify({ provider, email, is_demo: isDemo })
+  });
+}
+
+export async function scanInbox() {
+  return await apiRequest('/api/inbox/scan', {
+    method: 'POST'
+  });
+}
+
+export async function getInboxMessages(status = 'all') {
+  return await apiRequest(`/api/inbox/messages?status=${encodeURIComponent(status)}`);
+}
+
+export async function reviewInboxMessage(messageId, action, confirmation = false, extras = {}) {
+  return await apiRequest('/api/inbox/review', {
+    method: 'POST',
+    body: JSON.stringify({
+      message_id: messageId,
+      action,
+      confirmation,
+      ...extras
+    })
+  });
+}
+
+export async function getSenders(listType = '') {
+  const query = listType ? `?list_type=${encodeURIComponent(listType)}` : '';
+  return await apiRequest(`/api/senders${query}`);
+}
+
+export async function addSender(email, listType = 'trusted', note = '') {
+  return await apiRequest('/api/senders', {
+    method: 'POST',
+    body: JSON.stringify({ email, list_type: listType, note })
+  });
+}
+
+export async function deleteSender(senderId) {
+  return await apiRequest(`/api/senders/${senderId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function getThreatAlerts() {
+  return await apiRequest('/api/alerts');
+}
+
+export async function markAlertRead(alertId, isRead = true) {
+  return await apiRequest(`/api/alerts/${alertId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_read: isRead })
+  });
+}
+
+export async function dismissAlert(alertId) {
+  return await apiRequest(`/api/alerts/${alertId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function resetDemoInbox() {
+  return await apiRequest('/api/inbox/reset-demo', {
+    method: 'POST'
+  });
+}
