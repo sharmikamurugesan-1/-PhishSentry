@@ -31,11 +31,10 @@ export default function HeroSecurity3D() {
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.35;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = false;
 
     container.appendChild(renderer.domElement);
 
@@ -81,8 +80,8 @@ export default function HeroSecurity3D() {
     corePointLight.position.set(0, 0.1, 0.5);
     scene.add(corePointLight);
 
-    // 4. Background Security Particle Aura
-    const particleCount = prefersReducedMotion ? 120 : 380;
+    // 4. Background Security Particle Aura (Optimized for performance)
+    const particleCount = prefersReducedMotion ? 60 : 150;
     const pGeometry = new THREE.BufferGeometry();
     const pPositions = new Float32Array(particleCount * 3);
     const pScales = new Float32Array(particleCount);
@@ -227,12 +226,24 @@ export default function HeroSecurity3D() {
     };
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    // 8. Animation Render Loop
+    // 8. Animation Render Loop (Throttled when off-screen to preserve CPU/GPU)
     let animationFrameId;
+    let isVisible = true;
     const clock = new THREE.Clock();
+
+    let observer = null;
+    if ('IntersectionObserver' in window) {
+      observer = new IntersectionObserver(([entry]) => {
+        isVisible = entry.isIntersecting;
+      }, { threshold: 0.05 });
+      observer.observe(container);
+    }
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
+
+      // Skip heavy 3D rendering if container is offscreen or tab is hidden
+      if (!isVisible || document.hidden) return;
 
       const delta = clock.getDelta();
       const time = clock.getElapsedTime();
@@ -288,6 +299,7 @@ export default function HeroSecurity3D() {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', onScroll);
       container.removeEventListener('mousemove', onMouseMove);
+      if (observer) observer.disconnect();
       cancelAnimationFrame(animationFrameId);
       if (renderer.domElement && renderer.domElement.parentNode) {
         renderer.domElement.parentNode.removeChild(renderer.domElement);

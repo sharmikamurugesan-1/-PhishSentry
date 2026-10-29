@@ -2,6 +2,7 @@ import os
 import re
 import secrets
 import logging
+import gzip
 import joblib
 
 from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect
@@ -56,14 +57,34 @@ db.init_db()
 
 
 # --------------------------------------------------
-# CORS Handling
+# CORS Handling & Gzip Compression
 # --------------------------------------------------
 
 @app.after_request
-def add_cors_headers(response):
+def add_cors_and_compression(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PATCH, DELETE"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+    # Compress compressible text/js/json/css responses if client supports gzip
+    accept_encoding = request.headers.get("Accept-Encoding", "")
+    if (
+        "gzip" in accept_encoding.lower()
+        and response.status_code < 300
+        and response.content_type
+        and any(t in response.content_type for t in ["text/", "application/javascript", "application/json", "text/css", "image/svg+xml"])
+        and "Content-Encoding" not in response.headers
+    ):
+        if response.direct_passthrough:
+            response.direct_passthrough = False
+        data = response.get_data()
+        if len(data) >= 500:
+            compressed = gzip.compress(data, compresslevel=6)
+            response.set_data(compressed)
+            response.headers["Content-Encoding"] = "gzip"
+            response.headers["Content-Length"] = len(compressed)
+            response.headers["Vary"] = "Accept-Encoding"
+
     return response
 
 
@@ -78,12 +99,16 @@ def home():
 
 @app.route("/assets/<path:filename>")
 def serve_assets(filename):
-    return send_from_directory(os.path.join(STATIC_DIR, "assets"), filename)
+    resp = send_from_directory(os.path.join(STATIC_DIR, "assets"), filename)
+    resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return resp
 
 
 @app.route("/models/<path:filename>")
 def serve_models(filename):
-    return send_from_directory(os.path.join(STATIC_DIR, "models"), filename)
+    resp = send_from_directory(os.path.join(STATIC_DIR, "models"), filename)
+    resp.headers["Cache-Control"] = "public, max-age=604800, immutable"
+    return resp
 
 
 @app.route("/check", methods=["GET"])
