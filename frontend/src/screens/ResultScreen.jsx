@@ -207,7 +207,7 @@ Checked securely at https://phishshift.org`;
                 </h3>
                 <p className="text-[13px] text-[var(--color-text-muted)]">
                   {totalWarnings > 0 
-                    ? `${totalWarnings} warning signal${totalWarnings === 1 ? '' : 's'} identified across 3 interactive tools`
+                    ? `${totalWarnings} warning signal${totalWarnings === 1 ? '' : 's'} identified across 6 advanced interactive tools`
                     : "Inspect message details and verification checks"}
                 </p>
               </div>
@@ -226,6 +226,7 @@ Checked securely at https://phishshift.org`;
                 verdict={verdict}
                 severityLevel={severityLevel}
                 modelScore={currentResult.model_score ?? 0.5}
+                modelType={currentResult.model_type || 'Logistic Regression'}
                 noticed={currentResult.noticed || []}
                 links={currentResult.links || []}
                 todo={currentResult.todo || []}
